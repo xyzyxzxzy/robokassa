@@ -148,6 +148,7 @@ class Cart {
                         echo (new Exception(
                             'Не удалось распределить сумму для коэффициента ' . $keyCoefficient
                         ))->getMessage();
+                        die;
                     }
                 } while (!$isOk);
                 
@@ -182,6 +183,7 @@ class Cart {
                         echo (new Exception(
                             'Не удалось распределить погрешность округления'
                         ))->getMessage();
+                        die;
                     }
                 }
             }

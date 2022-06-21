@@ -51,13 +51,6 @@ class CartRobo {
      */
     private $cart;
 
-    /**
-     * Ссыкла на форму
-     * 
-     * @var string
-     */
-    private $url = 'https://auth.robokassa.ru/Merchant/PaymentForm/FormMS.js';
-
     public function __construct(
         string $mrhLogin = 'chililab_test',
         string $pass1 = 'wNafa017OGSsPZq82dBT',
@@ -71,13 +64,31 @@ class CartRobo {
         $this->cart = new Cart;
     }
 
-    private function getDescription() {
-        return implode(', ', array_map(function($productItem) {
-            return implode(' ', [
-                $productItem['name'],
-                $productItem['barcode']
-            ]);
-        }, $this->cart->getProductListWithBonuses()));
+    private function getReceipt() {
+        $products = [
+            "sno" => "osn",
+            'items' => array_map(function($productItem) {
+                return [
+                    'name' =>  $productItem['name'] . " [{$productItem['barcode']}]",
+                    'quantity' => $productItem['count'],
+                    'sum' => ($productItem['price'] * $productItem['count']) - $productItem['bonus'],
+                    'payment_method' => 'full_payment',
+                    'payment_object' => 'commodity',
+                    'tax' => 'none'
+                ];
+            }, $this->cart->getProductListWithBonuses())
+        ];
+        
+        $products['items'][] = [
+            'name' =>  "Доставка",
+            'quantity' => 1,
+            'sum' => $this->cart->getDeliveryCost(),
+            'payment_method' => 'full_payment',
+            'payment_object' => 'commodity',
+            'tax' => 'none'
+        ];
+
+        return json_encode($products);
     }
 
     /**
@@ -128,6 +139,22 @@ class CartRobo {
         $outSum = number_format($this->cart->getTotalPrice(), 2, '.', '');
         
         /**
+         * Информация о перечне товаров/услуг
+         * 
+         * @var string
+         */
+        $items = $this->getReceipt();
+
+        /**
+         * Чек
+         * 
+         * @var string
+         */
+        $receipt = urlencode($items);
+        
+        $receipt_urlencode = urlencode($receipt);
+        
+        /**
          * Параметры запроса
          * 
          * @var string
@@ -136,11 +163,12 @@ class CartRobo {
             'MerchantLogin' => $this->mrhLogin,
             'OutSum' => $outSum,
             'InvoiceID' => $invoiceID,
-            'Description' => $this->getDescription(),
-            'SignatureValue' => md5("{$this->mrhLogin}:{$outSum}:{$invoiceID}:{$this->pass1}"),
+            'Description' => "Оплата {$invoiceID}",
+            'SignatureValue' => md5("{$this->mrhLogin}:{$outSum}:{$invoiceID}:{$receipt}:{$this->pass1}"),
+            'Receipt' => $receipt_urlencode,
             'IsTest' => $this->isTest
         ]);
 
-        return "<html><script language=JavaScript src='{$this->url}?{$params}'></script></html>";
+        return '<a href=' . "https://auth.robokassa.ru/Merchant/Index.aspx?{$params}" . ' target="_blank">Оплатить</a>';
     }
 }
